@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Photopea Perception PoC</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex; height: 100vh; }
+  #pp-frame { flex: 3; border: none; }
+  #panel { flex: 1; min-width: 320px; padding: 16px; background: #1e1e1e; color: #eee; overflow-y: auto; }
+  button { padding: 10px 16px; font-size: 14px; cursor: pointer; margin-bottom: 12px; width: 100%; }
+  pre { white-space: pre-wrap; word-break: break-word; background: #111; padding: 10px; border-radius: 6px; font-size: 12px; }
+  h3 { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<iframe id="pp-frame" src="https://www.photopea.com"></iframe>
+
+<div id="panel">
+  <h3>Tutor Perception PoC</h3>
+  <button id="check-btn" disabled>Loading Photopea...</button>
+  <div id="status" style="color:#8f8; margin-bottom: 10px;"></div>
+  <pre id="output">No data yet. Click the button above once Photopea has loaded and you've made a document.</pre>
+</div>
+
+<script>
+const frame = document.getElementById('pp-frame');
+const btn = document.getElementById('check-btn');
+const output = document.getElementById('output');
+const statusEl = document.getElementById('status');
+
+let ppReady = false;
+let waitingForLayerData = false;
+
+// This is the script we send INTO Photopea. It walks the active document's
+// layers and sends back a JSON description via echoToOE.
+const READ_STATE_SCRIPT = `
+  (function() {
+    if (!app.activeDocument) {
+      app.echoToOE(JSON.stringify({ error: "no_document_open" }));
+      return;
+    }
+    var doc = app.activeDocument;
+    function describeLayer(l) {
+      return {
+        name: l.name,
+        visible: l.visible,
+        opacity: l.opacity,
+        blendMode: String(l.blendMode),
+        kind: String(l.kind),
+        selected: l.selected,
+        bounds: l.bounds
+      };
+    }
+    var layers = [];
+    for (var i = 0; i < doc.layers.length; i++) {
+      layers.push(describeLayer(doc.layers[i]));
+    }
+    var result = {
+      docName: doc.name,
+      width: doc.width,
+      height: doc.height,
+      layerCount: layers.length,
+      layers: layers
+    };
+    app.echoToOE(JSON.stringify(result));
+  })();
+`;
+
+// Listen for messages coming FROM Photopea
+window.addEventListener('message', (e) => {
+  if (e.source !== frame.contentWindow) return;
+
+  const data = e.data;
+
+  // Photopea signals readiness / end-of-script with the literal string "done"
+  if (data === 'done') {
+    if (!ppReady) {
+      ppReady = true;
+      btn.disabled = false;
+      btn.textContent = 'Check my current state';
+      statusEl.textContent = 'Photopea is ready. Open/create a document, add a few layers, then click the button.';
+    } else if (waitingForLayerData) {
+      // Script finished running; if we didn't get a data message before this,
+      // something went wrong (e.g. no document open triggered echo already).
+      waitingForLayerData = false;
+    }
+    return;
+  }
+
+  // Any other string message is data we asked Photopea to send us (echoToOE payload)
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      output.textContent = JSON.stringify(parsed, null, 2);
+    } catch (err) {
+      output.textContent = 'Received non-JSON message: ' + data;
+    }
+    waitingForLayerData = false;
+  }
+});
+
+btn.addEventListener('click', () => {
+  if (!ppReady) return;
+  waitingForLayerData = true;
+  statusEl.textContent = 'Requesting current state...';
+  frame.contentWindow.postMessage(READ_STATE_SCRIPT, '*');
+});
+</script>
+
+</body>
+</html>
