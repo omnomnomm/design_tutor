@@ -11,21 +11,30 @@ const COURSE = [
     id: "add_background",
     instruction: "Start with a background layer. Fill it with a color or pattern.",
     check: function(layers) {
-      // TODO: return true if there's at least 1 layer
+      for(let i=0;i<layers.length;i++){
+      if(layers[i].name == "Background") return true;
+      else return false;
+        }
     }
   },
   {
     id: "add_shape",
     instruction: "Draw a shape on a new layer above your background.",
     check: function(layers) {
-      // TODO: return true if any layer's name starts with "Shape"
+      for(let i=0;i<layers.length;i++){
+        if(layers[i].name.startsWith("Shape") == true) return true;
+        else return false;
+      }
     }
   },
   {
     id: "set_multiply",
     instruction: "Select your shape layer and set its blend mode to Multiply.",
     check: function(layers) {
-      // TODO: return true if any layer whose name starts with "Shape" has blendMode === "multiply"
+      for(let i=0;i<layers.length;i++){
+        if(layers[i].name.startsWith("Shape") && layers[i].blendMode == "mul ") return true;
+        else false;
+      }
     }
   }
 ];
@@ -33,7 +42,9 @@ const COURSE = [
 let currentStepIndex = 0;
 
 function updateSidebar(currentStepIndex){
+if(COURSE.length >= currentStepIndex + 1){
 step_label.textContent = "Step " + (currentStepIndex + 1) + " of " + COURSE.length;
+}
 progress_fill.style.width = (currentStepIndex / COURSE.length) * 100 + "%";
 }
 
@@ -111,6 +122,9 @@ window.addEventListener('message', (e) => {
                     updateSidebar(currentStepIndex);
                 } else {
                     statusEl.textContent = "Lesson complete!";
+                    btn.textContent == "End";
+                    btn.style.backgroundColor = "gray";
+                    updateSidebar(currentStepIndex);
                 }
             } else {
                 statusEl.textContent = "Not quite yet — keep trying.";
